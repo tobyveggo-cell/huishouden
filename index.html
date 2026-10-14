@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f7d57">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Huishouden</title>
+<style>
+  :root {
+    --bg: #fbfaf7; --card: #ffffff; --text: #1f2a24; --muted: #66726b;
+    --line: #e3e1da; --accent: #2f7d57; --accent-text: #ffffff;
+    --red: #b3261e; --red-bg: #fbe9e7; --amber: #8a5a00; --amber-bg: #fff3d6;
+    --green: #1e6b46; --green-bg: #e4f3ea;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151a17; --card: #1e2521; --text: #e9eee9; --muted: #98a59c;
+      --line: #313a34; --accent: #4fb083; --accent-text: #0e1712;
+      --red: #ff8a80; --red-bg: #3a1f1c; --amber: #ffcf70; --amber-bg: #3a2f14;
+      --green: #7fd6a8; --green-bg: #1b3326;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding-bottom: env(safe-area-inset-bottom); }
+  main { max-width: 640px; margin: 0 auto; padding: 16px 16px 96px; }
+  h1 { font-size: 20px; margin: 0; }
+  h2 { font-size: 16px; margin: 20px 0 8px; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  nav { position: fixed; bottom: 0; left: 0; right: 0; display: flex; background: var(--card);
+    border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+  nav button { flex: 1; padding: 14px 4px; background: none; border: 0; color: var(--muted);
+    font: inherit; font-size: 14px; }
+  nav button[aria-current="true"] { color: var(--accent); font-weight: 600; }
+  input, button, select { font: inherit; }
+  input[type=text], input[type=email], input[type=password], input[type=date] {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+    background: var(--card); color: var(--text); min-height: 44px; }
+  .btn { padding: 10px 14px; min-height: 44px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); cursor: pointer; }
+  .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+  .btn.small { min-height: 36px; padding: 6px 10px; font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .row > .grow { flex: 1; min-width: 0; }
+  .stack { display: grid; gap: 8px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .badge { font-size: 13px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .badge.red { background: var(--red-bg); color: var(--red); }
+  .badge.amber { background: var(--amber-bg); color: var(--amber); }
+  .badge.green { background: var(--green-bg); color: var(--green); }
+  .badge.none { background: var(--line); color: var(--muted); }
+  .item-name { font-weight: 600; }
+  .done .item-name { text-decoration: line-through; color: var(--muted); }
+  label.check { display: flex; gap: 8px; align-items: center; min-height: 44px; }
+  input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); }
+  .msg { padding: 10px 12px; border-radius: 10px; background: var(--amber-bg); color: var(--amber); margin-bottom: 12px; }
+  .msg.error { background: var(--red-bg); color: var(--red); }
+  .hidden { display: none !important; }
+  .empty { color: var(--muted); text-align: center; padding: 24px 0; }
+  pre { white-space: pre-wrap; background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px; font: 14px/1.4 inherit; max-height: 220px; overflow: auto; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">Huishouden</h1>
+    <button class="btn small hidden" id="logout">Uitloggen</button>
+  </header>
+  <div id="msg" class="msg hidden" role="status"></div>
+
+  <!-- Inloggen -->
+  <section id="view-login" class="hidden">
+    <form id="login-form" class="stack">
+      <p class="muted">Log in met het account dat je in Supabase hebt aangemaakt.</p>
+      <input type="email" id="email" placeholder="E-mailadres" autocomplete="username" required>
+      <input type="password" id="password" placeholder="Wachtwoord" autocomplete="current-password" required>
+      <button class="btn primary" type="submit">Inloggen</button>
+    </form>
+  </section>
+
+  <!-- Voorraad -->
+  <section id="view-inventory" class="hidden">
+    <form id="inv-form" class="card stack">
+      <input type="text" id="inv-name" placeholder="Wat heb je in huis?" required>
+      <div class="row">
+        <input class="grow" type="text" id="inv-qty" placeholder="Hoeveelheid (bijv. 500 g)">
+        <div class="grow"><input type="date" id="inv-date" aria-label="Houdbaar tot"></div>
+      </div>
+      <label class="check"><input type="checkbox" id="inv-fresh"> Vers (voorrang, ook zonder datum)</label>
+      <button class="btn primary" type="submit">Toevoegen</button>
+    </form>
+    <div id="inv-list"></div>
+  </section>
+
+  <!-- Boodschappen -->
+  <section id="view-shopping" class="hidden">
+    <form id="shop-form" class="card row">
+      <input class="grow" type="text" id="shop-name" placeholder="Toevoegen aan boodschappen" required>
+      <button class="btn primary" type="submit">+</button>
+    </form>
+    <div id="shop-list"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn grow" id="shop-bought">Afgevinkt naar voorraad</button>
+      <button class="btn grow" id="shop-clear">Afgevinkt wissen</button>
+    </div>
+  </section>
+
+  <!-- Avondeten -->
+  <section id="view-meals" class="hidden">
+    <h2>Gebruik eerst</h2>
+    <div id="use-first"></div>
+    <div class="row" style="margin:8px 0">
+      <button class="btn primary grow" id="ask-ai">Vraag AI om recepten</button>
+      <button class="btn grow" id="copy-prompt">Kopieer prompt</button>
+    </div>
+    <p class="muted" id="ai-note">Opent Google AI Mode met een kant-en-klare vraag. Plan daarna hieronder het gerecht in.</p>
+    <h2>Komende 7 dagen</h2>
+    <div id="meal-list"></div>
+  </section>
+</main>
+
+<nav id="nav" class="hidden">
+  <button data-tab="inventory" aria-current="true">Voorraad</button>
+  <button data-tab="shopping">Boodschappen</button>
+  <button data-tab="meals">Avondeten</button>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  "use strict";
+  var cfg = window.APP_CONFIG;
+  var sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_KEY);
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { inventory: [], shopping: [], meals: {}, tab: "inventory" };
+
+  // ---------- helpers ----------
+  function el(tag, props, children) {
+    var n = document.createElement(tag);
+    Object.keys(props || {}).forEach(function (k) {
+      if (k === "class") n.className = props[k];
+      else if (k === "text") n.textContent = props[k];
+      else if (k.indexOf("on") === 0) n.addEventListener(k.slice(2), props[k]);
+      else n.setAttribute(k, props[k]);
+    });
+    (children || []).forEach(function (c) { if (c) n.appendChild(c); });
+    return n;
+  }
+  function showMsg(text, isError) {
+    var m = $("msg");
+    if (!text) { m.classList.add("hidden"); return; }
+    m.textContent = text;
+    m.className = "msg" + (isError ? " error" : "");
+  }
+  function fail(error, what) {
+    console.error(error);
+    showMsg("Mislukt: " + what + ". " + (error && error.message ? error.message : ""), true);
+  }
+  function startOfToday() { var d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+  function isoDate(d) {
+    var m = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return d.getFullYear() + "-" + m + "-" + day;
+  }
+  function parseISO(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function daysUntil(iso) { return Math.round((parseISO(iso) - startOfToday()) / 86400000); }
+
+  // Aantal dagen tot "op moet zijn". Null = geen urgentie.
+  function urgency(item) {
+    if (item.expires_on) return daysUntil(item.expires_on);
+    if (item.is_fresh) return cfg.FRESH_DEFAULT_DAYS;
+    return null;
+  }
+  function byUrgency(a, b) {
+    var ua = urgency(a), ub = urgency(b);
+    if (ua === null && ub === null) return a.name.localeCompare(b.name);
+    if (ua === null) return 1;
+    if (ub === null) return -1;
+    // Met datum gaat voor vers-zonder-datum bij gelijke stand; vers wint bij gelijkspel.
+    if (ua !== ub) return ua - ub;
+    return (b.is_fresh ? 1 : 0) - (a.is_fresh ? 1 : 0);
+  }
+  function badgeFor(item) {
+    var u = urgency(item);
+    if (u === null) return el("span", { class: "badge none", text: "geen datum" });
+    var label, cls;
+    if (!item.expires_on) { label = "vers"; cls = u <= 1 ? "red" : "amber"; }
+    else if (u < 0) { label = "verlopen (" + Math.abs(u) + " d)"; cls = "red"; }
+    else if (u === 0) { label = "vandaag"; cls = "red"; }
+    else if (u === 1) { label = "morgen"; cls = "red"; }
+    else { label = "nog " + u + " d"; cls = u <= 3 ? "amber" : "green"; }
+    return el("span", { class: "badge " + cls, text: label });
+  }
+
+  // ---------- data ----------
+  function loadAll() {
+    return Promise.all([
+      sb.from("inventory_items").select("*"),
+      sb.from("shopping_items").select("*").order("created_at"),
+      sb.from("meal_plan").select("*").gte("plan_date", isoDate(startOfToday())),
+    ]).then(function (r) {
+      for (var i = 0; i < r.length; i++) {
+        if (r[i].error) { fail(r[i].error, "gegevens laden (is schema.sql uitgevoerd?)"); return; }
+      }
+      state.inventory = r[0].data;
+      state.shopping = r[1].data;
+      state.meals = {};
+      r[2].data.forEach(function (m) { state.meals[m.plan_date] = m.meal; });
+      showMsg("");
+      renderAll();
+    });
+  }
+
+  // ---------- render ----------
+  function renderInventory() {
+    var box = $("inv-list");
+    box.textContent = "";
+    if (!state.inventory.length) { box.appendChild(el("div", { class: "empty", text: "Nog niets in voorraad." })); return; }
+    state.inventory.slice().sort(byUrgency).forEach(function (it) {
+      box.appendChild(el("div", { class: "card row" }, [
+        el("div", { class: "grow" }, [
+          el("div", { class: "item-name", text: it.name }),
+          el("div", { class: "muted", text: [it.quantity, it.expires_on ? "tot " + it.expires_on : ""].filter(Boolean).join(" · ") }),
+        ]),
+        badgeFor(it),
+        el("button", { class: "btn small", "aria-label": "Verwijder " + it.name, text: "Op",
+          onclick: function () { removeInventory(it.id); } }),
+      ]));
+    });
+  }
+  function renderShopping() {
+    var box = $("shop-list");
+    box.textContent = "";
+    if (!state.shopping.length) { box.appendChild(el("div", { class: "empty", text: "Boodschappenlijst is leeg." })); return; }
+    state.shopping.forEach(function (it) {
+      var cb = el("input", { type: "checkbox" });
+      cb.checked = it.done;
+      cb.addEventListener("change", function () { toggleShopping(it.id, cb.checked); });
+      box.appendChild(el("div", { class: "card row" + (it.done ? " done" : "") }, [
+        el("label", { class: "check grow" }, [cb, el("span", { class: "item-name", text: it.name })]),
+        el("button", { class: "btn small", "aria-label": "Verwijder " + it.name, text: "×",
+          onclick: function () { removeShopping(it.id); } }),
+      ]));
+    });
+  }
+  function useFirstItems() {
+    return state.inventory.filter(function (i) { return urgency(i) !== null; }).sort(byUrgency);
+  }
+  function renderMeals() {
+    var first = $("use-first");
+    first.textContent = "";
+    var items = useFirstItems();
+    if (!items.length) first.appendChild(el("div", { class: "muted", text: "Niets dat snel op moet." }));
+    items.forEach(function (it) {
+      first.appendChild(el("div", { class: "card row" }, [
+        el("div", { class: "grow item-name", text: it.name }), badgeFor(it)]));
+    });
+
+    var list = $("meal-list");
+    list.textContent = "";
+    var fmt = new Intl.DateTimeFormat("nl-NL", { weekday: "long", day: "numeric", month: "short" });
+    for (var i = 0; i < 7; i++) {
+      (function (offset) {
+        var d = startOfToday(); d.setDate(d.getDate() + offset);
+        var key = isoDate(d);
+        var input = el("input", { type: "text", placeholder: "Wat eten we?", "aria-label": "Avondeten " + fmt.format(d) });
+        input.value = state.meals[key] || "";
+        input.addEventListener("change", function () { saveMeal(key, input.value.trim()); });
+        list.appendChild(el("div", { class: "card stack" }, [el("div", { class: "muted", text: fmt.format(d) }), input]));
+      })(i);
+    }
+  }
+  function renderAll() { renderInventory(); renderShopping(); renderMeals(); }
+
+  // ---------- acties ----------
+  function addInventory(e) {
+    e.preventDefault();
+    var row = {
+      name: $("inv-name").value.trim(),
+      quantity: $("inv-qty").value.trim() || null,
+      expires_on: $("inv-date").value || null,
+      is_fresh: $("inv-fresh").checked,
+    };
+    if (!row.name) return;
+    sb.from("inventory_items").insert(row).select().single().then(function (r) {
+      if (r.error) return fail(r.error, "toevoegen aan voorraad");
+      state.inventory.push(r.data);
+      $("inv-form").reset();
+      renderInventory(); renderMeals();
+    });
+  }
+  function removeInventory(id) {
+    sb.from("inventory_items").delete().eq("id", id).then(function (r) {
+      if (r.error) return fail(r.error, "verwijderen");
+      state.inventory = state.inventory.filter(function (i) { return i.id !== id; });
+      renderInventory(); renderMeals();
+    });
+  }
+  function addShopping(e) {
+    e.preventDefault();
+    var name = $("shop-name").value.trim();
+    if (!name) return;
+    sb.from("shopping_items").insert({ name: name }).select().single().then(function (r) {
+      if (r.error) return fail(r.error, "toevoegen aan boodschappen");
+      state.shopping.push(r.data);
+      $("shop-form").reset();
+      renderShopping();
+    });
+  }
+  function toggleShopping(id, done) {
+    sb.from("shopping_items").update({ done: done }).eq("id", id).then(function (r) {
+      if (r.error) return fail(r.error, "afvinken");
+      state.shopping.forEach(function (i) { if (i.id === id) i.done = done; });
+      renderShopping();
+    });
+  }
+  function removeShopping(id) {
+    sb.from("shopping_items").delete().eq("id", id).then(function (r) {
+      if (r.error) return fail(r.error, "verwijderen");
+      state.shopping = state.shopping.filter(function (i) { return i.id !== id; });
+      renderShopping();
+    });
+  }
+  function clearBought() {
+    var ids = state.shopping.filter(function (i) { return i.done; }).map(function (i) { return i.id; });
+    if (!ids.length) return;
+    sb.from("shopping_items").delete().in("id", ids).then(function (r) {
+      if (r.error) return fail(r.error, "wissen");
+      state.shopping = state.shopping.filter(function (i) { return !i.done; });
+      renderShopping();
+    });
+  }
+  // Afgevinkte boodschappen komen zonder datum in de voorraad.
+  function boughtToInventory() {
+    var done = state.shopping.filter(function (i) { return i.done; });
+    if (!done.length) return;
+    var rows = done.map(function (i) { return { name: i.name, is_fresh: false }; });
+    sb.from("inventory_items").insert(rows).select().then(function (r) {
+      if (r.error) return fail(r.error, "naar voorraad zetten");
+      state.inventory = state.inventory.concat(r.data);
+      clearBought();
+      renderInventory(); renderMeals();
+      showMsg(done.length + " item(s) naar voorraad verplaatst, zonder houdbaarheidsdatum.");
+    });
+  }
+  function saveMeal(date, meal) {
+    var q = meal
+      ? sb.from("meal_plan").upsert({ plan_date: date, meal: meal, updated_at: new Date().toISOString() })
+      : sb.from("meal_plan").delete().eq("plan_date", date);
+    q.then(function (r) {
+      if (r.error) return fail(r.error, "maaltijd opslaan");
+      if (meal) state.meals[date] = meal; else delete state.meals[date];
+    });
+  }
+
+  // ---------- AI-prompt ----------
+  function buildPrompt() {
+    var items = useFirstItems().slice(0, 15);
+    var rest = state.inventory.filter(function (i) { return urgency(i) === null; }).slice(0, 25);
+    var fmt = function (i) {
+      var u = urgency(i);
+      var when = i.expires_on ? " (over " + u + " dagen)" : (i.is_fresh ? " (vers)" : "");
+      return i.name + (i.quantity ? " " + i.quantity : "") + when;
+    };
+    return "Ik wil verspilling voorkomen. Stel een avondeten-plan voor de komende 7 dagen voor " + cfg.PERSONS +
+      " personen voor. Gebruik EERST deze producten, in deze volgorde van urgentie: " +
+      (items.length ? items.map(fmt).join(", ") : "geen") +
+      ". Verder heb ik in huis: " + (rest.length ? rest.map(fmt).join(", ") : "niets bijzonders") +
+      ". Geef per dag een gerecht met korte bereiding en noem apart wat ik nog moet kopen. " +
+      "Houd de boodschappen beperkt. Antwoord in het Nederlands.";
+  }
+  function askAI() {
+    var url = "https://www.google.com/search?udm=50&q=" + encodeURIComponent(buildPrompt());
+    window.open(url, "_blank", "noopener");
+  }
+  function copyPrompt() {
+    var text = buildPrompt();
+    var done = function () { showMsg("Prompt gekopieerd. Plak hem in Gemini of een andere AI."); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { showMsg(text); });
+    else showMsg(text);
+  }
+
+  // ---------- navigatie en inloggen ----------
+  function setTab(tab) {
+    state.tab = tab;
+    ["inventory", "shopping", "meals"].forEach(function (t) {
+      $("view-" + t).classList.toggle("hidden", t !== tab);
+    });
+    document.querySelectorAll("nav button").forEach(function (b) {
+      b.setAttribute("aria-current", String(b.dataset.tab === tab));
+    });
+    var titles = { inventory: "Voorraad", shopping: "Boodschappen", meals: "Avondeten" };
+    $("title").textContent = titles[tab];
+  }
+  function showApp(signedIn) {
+    $("view-login").classList.toggle("hidden", signedIn);
+    $("nav").classList.toggle("hidden", !signedIn);
+    $("logout").classList.toggle("hidden", !signedIn);
+    if (signedIn) setTab(state.tab);
+    else {
+      ["inventory", "shopping", "meals"].forEach(function (t) { $("view-" + t).classList.add("hidden"); });
+      $("title").textContent = "Huishouden";
+    }
+  }
+  function login(e) {
+    e.preventDefault();
+    sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("password").value })
+      .then(function (r) {
+        if (r.error) return fail(r.error, "inloggen");
+        showMsg("");
+      });
+  }
+
+  $("login-form").addEventListener("submit", login);
+  $("logout").addEventListener("click", function () { sb.auth.signOut(); });
+  $("inv-form").addEventListener("submit", addInventory);
+  $("shop-form").addEventListener("submit", addShopping);
+  $("shop-clear").addEventListener("click", clearBought);
+  $("shop-bought").addEventListener("click", boughtToInventory);
+  $("ask-ai").addEventListener("click", askAI);
+  $("copy-prompt").addEventListener("click", copyPrompt);
+  document.querySelectorAll("nav button").forEach(function (b) {
+    b.addEventListener("click", function () { setTab(b.dataset.tab); });
+  });
+
+  sb.auth.onAuthStateChange(function (event, session) {
+    showApp(!!session);
+    if (session) loadAll();
+  });
+  sb.auth.getSession().then(function (r) { if (!r.data.session) showApp(false); });
+})();
+</script>
+</body>
+</html>
